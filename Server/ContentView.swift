@@ -21,11 +21,22 @@ struct ContentView: View {
             }
             else {
                 Text(networkSupport.incomingMessage)
+                    .padding()
+                
+                if networkSupport.connected {
+                    Button("Reply") {
+                        networkSupport.send(message: "Thank you for: " + networkSupport.incomingMessage)
+                    }
+                    .padding()
+                }
+                
                 Button("Stop") {
                     networkSupport.nearbyServiceAdvertiser?.stopAdvertisingPeer()
                     advertising.toggle()
                 }
-            }        }
+                .padding()
+            }
+        }
         .padding()
     }
 }

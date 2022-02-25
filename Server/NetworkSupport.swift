@@ -28,7 +28,7 @@ class NetworkSupport: NSObject, ObservableObject, MCNearbyServiceAdvertiserDeleg
     
     /// The current session
     private var session: MCSession
-
+    
     /// For a server, this allows access to the MCNearbyServiceAdvertiser; nil otherwise.
     var nearbyServiceAdvertiser: MCNearbyServiceAdvertiser?
     
@@ -91,6 +91,29 @@ class NetworkSupport: NSObject, ObservableObject, MCNearbyServiceAdvertiserDeleg
     
     // MARK: - MCNearbyServiceBrowserDelegate Methods. See XCode documentation for details.
     
+    /// Adds the given peer to the peers array.
+    /// - Parameter peer: The peer to be added.
+    private func addPeer(peer: MCPeerID) {
+        DispatchQueue.main.async {
+            if !self.peers.contains(peer) {
+                os_log("addPeer")
+                self.peers.append(peer)
+            }
+        }
+    }
+    
+    /// Removes the given peer from the peers array, if possible.
+    /// - Parameter peer: The peer to be removed.
+    private func removePeer(peer: MCPeerID) {
+        DispatchQueue.main.async {
+            guard let index = self.peers.firstIndex(of: peer) else {
+                return
+            }
+            os_log("removePeer")
+            self.peers.remove(at: index)
+        }
+    }
+    
     /// Inherited from MCNearbyServiceBrowserDelegate.browser(_:didNotStartBrowsingForPeers:).
     /// Currently only logs.
     func browser(_ browser: MCNearbyServiceBrowser, didNotStartBrowsingForPeers error: Error) {
@@ -100,21 +123,19 @@ class NetworkSupport: NSObject, ObservableObject, MCNearbyServiceAdvertiserDeleg
     /// Inherited from MCNearbyServiceBrowserDelegate.browser(_:foundPeer:withDiscoveryInfo:).
     /// Updates the peers array with the newly-found peerID.
     func browser(_ browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID, withDiscoveryInfo info: [String : String]?) {
-        os_log("foundPeer", peerID, info ?? "")
-        if !peers.contains(peerID) {
-            peers.append(peerID)
-        }
+        let info2 = info?.description ?? ""
+        os_log("foundPeer \(peerID) \(info2)")
+        addPeer(peer: peerID)
     }
     
     /// Inherited from MCNearbyServiceBrowserDelegate.browser(_:lostPeer:).
-    /// Removes the lost peerID from the peers array.
+    /// Removes the lost peerID from the peers array and updates connected status.
     func browser(_ browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {
-        guard let index = peers.firstIndex(of: peerID) else {
-            os_log("lostPeer \(peerID) NOT FOUND")
-            return
+        os_log("lostPeer \(peerID)")
+        removePeer(peer: peerID)
+        DispatchQueue.main.async {
+            self.connected = false
         }
-        peers.remove(at: index)
-        os_log("lostPeer \(peerID) removed")
     }
     
     // MARK: - Client Setup Method
@@ -172,6 +193,7 @@ class NetworkSupport: NSObject, ObservableObject, MCNearbyServiceAdvertiserDeleg
         switch didChange {
         case .notConnected:
             os_log("didChange notConnected \(peer)")
+            removePeer(peer: peer)
             DispatchQueue.main.async {
                 self.connected = false
             }
@@ -182,6 +204,7 @@ class NetworkSupport: NSObject, ObservableObject, MCNearbyServiceAdvertiserDeleg
             }
         case .connected:
             os_log("didChange connected \(peer)")
+            addPeer(peer: peer)
             DispatchQueue.main.async {
                 self.connected = true
             }
@@ -196,7 +219,8 @@ class NetworkSupport: NSObject, ObservableObject, MCNearbyServiceAdvertiserDeleg
     /// Inherited from MCSessionDelegate.session(_:didReceiveCertificate:fromPeer:certificateHandler:).
     /// Currently accepts all certificates.
     func session(_ session: MCSession, didReceiveCertificate: [Any]?, fromPeer: MCPeerID, certificateHandler: (Bool) -> Void) {
-        os_log("didReceiveCertificate", didReceiveCertificate ?? "", fromPeer)
+        let didReceiveCertificate2 = didReceiveCertificate?.description ?? ""
+        os_log("didReceiveCertificate \(didReceiveCertificate2) \(fromPeer)")
         certificateHandler(true)
     }
     
