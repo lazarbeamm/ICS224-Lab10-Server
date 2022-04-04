@@ -12,7 +12,7 @@ import os
 /// Uniquely identifies the service.
 /// Make this unique to avoid interfering with other Multipeer services.
 /// Don't forget to update the project Info AND the project Info.plist property lists accordingly.
-let serviceType = "lab10"
+let serviceType = "lab10-03-22-23"
 
 /// This structure is used at setup time to identify client needs to a server.
 /// Currently, it only contains an identifying message, but this can be expanded to contain version information and other data.
@@ -183,12 +183,14 @@ class NetworkSupport: NSObject, ObservableObject, MCNearbyServiceAdvertiserDeleg
     
     /// Inherited from MCSessionDelegate.session(_:didReceive:withName:fromPeer:).
     /// Currently only logs.
+    /// Called whenever data is received (from the client's didChange method)
     func session(_ session: MCSession, didReceive: InputStream, withName: String, fromPeer: MCPeerID) {
         os_log("didReceive:withName \(didReceive) \(withName) \(fromPeer)")
     }
     
     /// Inherited from MCSessionDelegate.session(_:peer:didChange:).
     /// Updates the connected state.
+    /// Called repeatedly to indicate current connection mode (connecting, connected, notConnected)
     func session(_ session: MCSession, peer: MCPeerID, didChange: MCSessionState) {
         switch didChange {
         case .notConnected:
