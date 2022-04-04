@@ -17,12 +17,6 @@ struct ContentView: View {
                 Button("Start") {
                     networkSupport.nearbyServiceAdvertiser?.startAdvertisingPeer()
                     advertising.toggle()
-                    // Add Treasure to board
-                    board[0,0] = "Treasure"
-                    board[0,1] = "Treasure"
-                    board[0,2] = "Treasure"
-                    board[0,3] = "Treasure"
-                    board[0,4] = "Treasure"
                 }
             }
             else {
