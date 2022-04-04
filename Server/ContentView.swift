@@ -17,6 +17,12 @@ struct ContentView: View {
                 Button("Start") {
                     networkSupport.nearbyServiceAdvertiser?.startAdvertisingPeer()
                     advertising.toggle()
+                    // Add Treasure to board
+                    board[0,0] = "Treasure"
+                    board[0,1] = "Treasure"
+                    board[0,2] = "Treasure"
+                    board[0,3] = "Treasure"
+                    board[0,4] = "Treasure"
                 }
             }
             else {
@@ -45,48 +51,3 @@ struct ContentView: View {
         }
     }
 }//end of ContentView
-
-class Tile {
-    var item: String?
-    
-    init(item: String?){
-        self.item = item
-    }
-}
-
-class Board {
-    let boardSize = 10
-    // declare an array of tiles caled tiles
-    var tiles: [[Tile]]
-    
-    init(){
-        // create the tiles array
-        tiles = [[Tile]]()
-        
-        for _ in 1...boardSize{
-            var tileRow = [Tile]()
-            for _ in 1...boardSize{
-                tileRow.append(Tile(item: nil))
-            }
-            tiles.append(tileRow)
-        }
-    }
-    
-    subscript(row: Int, column: Int) -> String? {
-        get {
-            if(row < 0) || (boardSize <= row) || (column < 0) || (boardSize <= column){
-                return nil
-            } else {
-                return tiles[row][column].item
-            }
-        }
-        set {
-            if(row < 0) || (boardSize <= row) || (column < 0) || (boardSize <= column){
-                return
-            } else {
-                tiles[row][column].item = newValue
-            }
-        }
-    }//end of subscript helper
-    
-}//end of Board class
