@@ -73,6 +73,7 @@ struct ContentView: View {
             var chosenColumnInt = chosenColumn.wholeNumberValue
             
             // Check the Board object to determine if the position chosen contains treasure or not
+            // The chosen row & column and being forced to unwrap - may lead to problems later (if somehow some other data is sent)
             if (board.tiles[chosenRowInt!][chosenColumnInt!].item != nil){
                 print("Found Treasure!")
             } else {
