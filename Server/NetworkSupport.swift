@@ -44,6 +44,8 @@ class NetworkSupport: NSObject, ObservableObject, MCNearbyServiceAdvertiserDeleg
     /// Contains the most recent incoming message.
     @Published var incomingMessage = ""
     
+    @Published var incomingPeer: MCPeerID?
+    
     /// Create a Multipeer Server or Client
     /// - Parameter browse: true creates a Client, false creates a Server
     init(browse: Bool) {
@@ -160,6 +162,7 @@ class NetworkSupport: NSObject, ObservableObject, MCNearbyServiceAdvertiserDeleg
             os_log("didReceive \(request) \(fromPeer)")
             DispatchQueue.main.async {
                 self.incomingMessage = request
+                self.incomingPeer = fromPeer
             }
         }
         catch let error {
@@ -241,6 +244,33 @@ class NetworkSupport: NSObject, ObservableObject, MCNearbyServiceAdvertiserDeleg
         }
     }
     
+    func send(message: String, first: Character) {
+        guard let firstPeer = peers.first else{
+            return
+        }
+        do {
+            let data = try JSONEncoder().encode(message)
+            try session.send(data, toPeers: [firstPeer], with: .reliable)
+            os_log("send \(message)")
+        }
+        catch let error {
+            os_log("send \(error.localizedDescription)")
+        }
+    }
+    
+    func send(message: String, last: Character) {
+        guard let lastPeer = peers.last else{
+            return
+        }
+        do {
+            let data = try JSONEncoder().encode(message)
+            try session.send(data, toPeers: [lastPeer], with: .reliable)
+            os_log("send \(message)")
+        }
+        catch let error {
+            os_log("send \(error.localizedDescription)")
+        }
+    }
     // MARK: - Cleanup
     
     deinit {
