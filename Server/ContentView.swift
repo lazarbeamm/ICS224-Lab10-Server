@@ -46,7 +46,13 @@ struct ContentView: View {
                     for _ in 0...4{
                         let randomRow = Int.random(in: 0...maxRowOrCol)
                         let randomCol = Int.random(in: 0...maxRowOrCol)
-                        board[randomRow, randomCol] = "Treasure"
+                        if board[randomRow, randomCol] != "Treasure" {
+                            board[randomRow, randomCol] = "Treasure"
+                        } else {
+                            let randomRow = Int.random(in: 0...maxRowOrCol)
+                            let randomCol = Int.random(in: 0...maxRowOrCol)
+                            board[randomRow, randomCol] = "Treasure"
+                        }
                         print("\(randomRow),\(randomCol)")
                     }
                 }
@@ -55,24 +61,25 @@ struct ContentView: View {
                 Text(networkSupport.incomingMessage)
                     .padding()
                 
-                if networkSupport.connected && networkSupport.peers.count == 2{
+                if networkSupport.peers.count == 2{
 
                     LazyVGrid(columns: gridLayout, spacing: 10){
                         
-                        ForEach(board.tiles, id: \.self) { row in
-                            ForEach(row) { cell in
+                        ForEach(0..<board.tiles.count, id: \.self) { x in
+                            ForEach(0..<board.tiles.count) { y in
                                     
-                                if (cell.guessed == false){
+                                if (board.tiles[x][y].guessed == false){
                                     Button(action: { // not yet guessed
+                                        //outgoingMessage
                                     }){
                                         Image(systemName: "circle")
                                     }
-                                } else if (cell.guessed == true && cell.item == "Treasure"){
+                                } else if (board.tiles[x][y].guessed == true && board.tiles[x][y].item == "Treasure"){
                                     Button(action: { // treasure
                                     }){
                                         Image(systemName: "trash")
                                     }
-                                } else if (cell.guessed == true && cell.item == nil){
+                                } else if (board.tiles[x][y].guessed == true && board.tiles[x][y].item == nil){
                                     Button(action: { // guessed, no treasure
                                     }){
                                         Image(systemName: "circle.fill")
@@ -98,11 +105,13 @@ struct ContentView: View {
             if treasureRemaining == 0 {
                 // If first player's score is higher...
                 if firstScore > lastScore {
-                    networkSupport.send(message: "\(String(describing: networkSupport.peers.first)) WINS!!!")
+                    networkSupport.send(message: "Player First WINS!!!")
+                    //networkSupport.send(message: "\(String(describing: networkSupport.peers.first)) WINS!!!")
                 }
                 // If last player's score is higher
                 else if lastScore > firstScore {
-                    networkSupport.send(message: "\(String(describing: networkSupport.peers.last)) WINS!!")
+                    networkSupport.send(message: "Player Last WINS!!")
+                    //networkSupport.send(message: "\(String(describing: networkSupport.peers.last)) WINS!!")
                 }
                 else {
                     networkSupport.send(message: "HOW DID YOU BREAK THIS?!?!?!\nARE THERE EVEN NUMBER OF TREASURES!??!?!")
@@ -111,8 +120,10 @@ struct ContentView: View {
             }
             // When two players have connected...
             if(networkSupport.peers.count == 2){
-                // first players turn
+                // Telling client its their turn
+                networkSupport.send(message: "First Player's turn.", first: "f")
                 if firstTurn && (networkSupport.incomingPeer == networkSupport.peers.first){
+                    
                     // Extract the row and column chosen by the client (a char representing the row/column, respectively)
                     let chosenRow = Array(newValue)[0]
                     let chosenColumn = Array(newValue)[2]
@@ -121,31 +132,33 @@ struct ContentView: View {
                     // If conversion fails the result will be nil
                     let chosenRowInt = chosenRow.wholeNumberValue
                     let chosenColumnInt = chosenColumn.wholeNumberValue
-                    
-                    // Telling client its their turn
-                    networkSupport.send(message: "Your turn.", first: "f")
                     if board.tiles[chosenRowInt!][chosenColumnInt!].item != nil && board.tiles[chosenRowInt!][chosenColumnInt!].guessed == false{
-                        networkSupport.send(message: "Found Treasure! \(messageNonce)")
-                        // Update score
                         firstScore += 1
+                        networkSupport.send(message: "Found Treasure at [\(chosenRowInt),\(chosenColumnInt)], [\(firstScore), \(lastScore)]") //\(messageNonce)") \(messageNonce)")
+                        // Update score
+                        
                         // Send score update out to all clients
-                        networkSupport.send(message: "\(String(describing: networkSupport.peers.first))'s Score: \(lastScore)\n\(String(describing: networkSupport.peers.last))'s Score: \(firstScore)")
-                        // Set the tile to found
-                        board.tiles[chosenRowInt!][chosenColumnInt!].guessed = true
+                        //networkSupport.send(message: "First Player's Score: \(firstScore)\nLast Player's Score: \(lastScore)")
                         // Decrement the total treasure remaining (once treasureRemaining == 0, game ends)
                         treasureRemaining -= 1
                         // Change turns and increment message
                         firstTurn = false
                         lastTurn = true
                         messageNonce += 1
+                        //networkSupport.send(message: "Scores: \(firstScore), \(lastScore)")
                     } else if board.tiles[chosenRowInt!][chosenColumnInt!].item == nil && board.tiles[chosenRowInt!][chosenColumnInt!].guessed == false{
-                        networkSupport.send(message: "No Treasure \(messageNonce)")
+                        networkSupport.send(message: "No Treasure at [\(chosenRowInt),\(chosenColumnInt)]") //\(messageNonce)")
                         // Change turns and increment message
                         firstTurn = false
                         lastTurn = true
                         messageNonce += 1
                     }
+                    // Set the tile to found
+                    board.tiles[chosenRowInt!][chosenColumnInt!].guessed = true
+                    // Telling client its their turn
+                    //networkSupport.send(message: "Last Player's turn.", last: "l")
                 } else if lastTurn && (networkSupport.incomingPeer == networkSupport.peers.last){
+                    
                     // Extract the row and column chosen by the client (a char representing the row/column, respectively)
                     let chosenRow = Array(newValue)[0]
                     let chosenColumn = Array(newValue)[2]
@@ -154,27 +167,30 @@ struct ContentView: View {
                     // If conversion fails the result will be nil
                     let chosenRowInt = chosenRow.wholeNumberValue
                     let chosenColumnInt = chosenColumn.wholeNumberValue
-                    // Telling client its their turn
-                    networkSupport.send(message: "Your turn.", last: "l")
                     if board.tiles[chosenRowInt!][chosenColumnInt!].item != nil && board.tiles[chosenRowInt!][chosenColumnInt!].guessed == false{
-                        networkSupport.send(message: "Found Treasure! \(messageNonce)")
                         lastScore += 1
+                        networkSupport.send(message: "Found Treasure at [\(chosenRowInt),\(chosenColumnInt)], [\(firstScore), \(lastScore)]")//") //\(messageNonce)")
+                        
                         // Send score update out to all clients
-                        networkSupport.send(message: "\(String(describing: networkSupport.peers.first))'s Score: \(lastScore)\n\(String(describing: networkSupport.peers.last))'s Score: \(firstScore)")
+                        //networkSupport.send(message: "First Player's Score: \(firstScore)\nLast Player's Score: \(lastScore)")
                         // Update the player that found the treasures score
                         // Decrement the total treasure remaining (once treasureRemaining == 0, game ends)
                         treasureRemaining -= 1
                         // Change turns and increment message
-                        firstTurn = false
-                        lastTurn = true
+                        firstTurn = true
+                        lastTurn = false
                         messageNonce += 1
+                        //networkSupport.send(message: "Scores: \(firstScore), \(lastScore)")
                     } else if board.tiles[chosenRowInt!][chosenColumnInt!].item == nil && board.tiles[chosenRowInt!][chosenColumnInt!].guessed == false{
-                        networkSupport.send(message: "No Treasure \(messageNonce)")
+                        networkSupport.send(message: "No Treasure at [\(chosenRowInt),\(chosenColumnInt)]") //\(messageNonce)")
                         // Change turns and increment message
-                        firstTurn = false
-                        lastTurn = true
+                        firstTurn = true
+                        lastTurn = false
                         messageNonce += 1
                     }
+                    // Set the tile to found
+                    board.tiles[chosenRowInt!][chosenColumnInt!].guessed = true
+                    
                 }
             }
         }
