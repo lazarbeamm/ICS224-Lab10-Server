@@ -9,18 +9,31 @@ import SwiftUI
 import MultipeerConnectivity
 
 struct ContentView: View {
+    /// A reference to the instantiated Board object, which stores the information pertaining to each of the 100 gameboard tiles.
     @EnvironmentObject var board: Board
+    /// Whether or not its the first player's turn.
     @State var firstTurn = true
+    /// Whether or not its the last player's turn.
     @State var lastTurn = false
+    /// Wheter or not the server is available for incoming connections.
     @State var advertising = false
+    /// An instantiation of the NetworkSupport class, used to facilitate matters relating to setting up Server and Client Multipeer services.
     @StateObject var networkSupport = NetworkSupport(browse: false)
+    /// Keeps track of the first player's score.
     @State var firstScore = 0
+    /// Keeps track of the last player's score.
     @State var lastScore = 0
-    // The total number of treasures to be found. Once this value == 0, the game ends
+    /// The total number of treasures remaining to be found. Once this value == 0, the game ends.
     @State var treasureRemaining = 5
-    // The maximum value a row or column will contain (our grid is 0-9, so (9,9) is the greatest value we can expect)
+    /// An integer var holding our magic number of required clients to start the game.
+    private var requiredNumOfPlayers = 2
+    /// An integer var holding our magic number of the row index received from a client.
+    private var indexOfRow = 0
+    /// An integer var holding our magic number of the col index received from a client.
+    private var indexOfCol = 2
+    /// The maximum value a row or column will contain (our grid is 0-9, so (9,9) is the greatest value we can expect)
     private var maxRowOrCol = 9
-    // Create layout for LazyGrid to adhere to (in this case, a 10 x 10 grid)
+    /// An instantiation that creates the layout for LazyGrid to adhere to (in this case, a 10 x 10 grid)
     private var gridLayout = [
         GridItem(.flexible()),
         GridItem(.flexible()),
@@ -36,10 +49,13 @@ struct ContentView: View {
     
     var body: some View {
         VStack {
+            // If server isn't advertising...
             if !advertising {
                 Button("Start") {
+                    // Begin advertising (allow incoming connections to connect)
                     networkSupport.nearbyServiceAdvertiser?.startAdvertisingPeer()
                     advertising.toggle()
+                    
                     // Once Server has started, determine treasure locations
                     for _ in 0...4{
                         let randomRow = Int.random(in: 0...maxRowOrCol)
@@ -59,13 +75,10 @@ struct ContentView: View {
                 Text(networkSupport.incomingMessage)
                     .padding()
                 
-                if networkSupport.peers.count == 2{
-
+                if networkSupport.peers.count == requiredNumOfPlayers{
                     LazyVGrid(columns: gridLayout, spacing: 10){
-                        
                         ForEach(0..<board.tiles.count, id: \.self) { x in
                             ForEach(0..<board.tiles.count) { y in
-                                    
                                 if (board.tiles[x][y].guessed == false){
                                     Button(action: { // not yet guessed
                                     }){
@@ -84,7 +97,7 @@ struct ContentView: View {
                                 }
                             }
                         }
-                        }
+                    }
                 }
                 Button("Stop") {
                     networkSupport.nearbyServiceAdvertiser?.stopAdvertisingPeer()
@@ -95,93 +108,96 @@ struct ContentView: View {
         }
         .padding()
         .onChange(of: networkSupport.incomingMessage){ newValue in
+            
             // Handle incoming message here
             // This could be request for board state, or a move request (col, row)
             // If the same incomingMessage is sent twice, this will not trigger a second time (only called on change)
             // If no treasures remain...
             if treasureRemaining == 0 {
+                
                 // If first player's score is higher...
                 if firstScore > lastScore {
                     networkSupport.send(message: "Player First WINS!!!")
                 }
+                
                 // If last player's score is higher
                 else if lastScore > firstScore {
                     networkSupport.send(message: "Player Last WINS!!")
                 }
                 else {
-                    networkSupport.send(message: "HOW DID YOU BREAK THIS?!?!?!\nARE THERE EVEN NUMBER OF TREASURES!??!?!")
+                    networkSupport.send(message: "HOW DID YOU BREAK THIS?!?!?!\nARE THERE AN EVEN NUMBER OF TREASURES!??!?!\nOR DID SOMETHING ELSE HAPPEN!?!")
                 }
-                // Had an idea of a game restart
+                // Had an idea of a game restart... maybe next time!
             }
             // When two players have connected...
-            if(networkSupport.peers.count == 2){
-                // Telling client its their turn
-                networkSupport.send(message: "First Player's turn.", first: "f")
+            if(networkSupport.peers.count == requiredNumOfPlayers){
                 if firstTurn && (networkSupport.incomingPeer == networkSupport.peers.first){
                     
                     // Extract the row and column chosen by the client (a char representing the row/column, respectively)
-                    let chosenRow = Array(newValue)[0]
-                    let chosenColumn = Array(newValue)[2]
+                    let chosenRow = Array(newValue)[indexOfRow]
+                    let chosenColumn = Array(newValue)[indexOfCol]
                     
                     // Convert those extracted values to Int instead of char
                     // If conversion fails the result will be nil
                     let chosenRowInt = chosenRow.wholeNumberValue
                     let chosenColumnInt = chosenColumn.wholeNumberValue
                     if board.tiles[chosenRowInt!][chosenColumnInt!].item != nil && board.tiles[chosenRowInt!][chosenColumnInt!].guessed == false{
-                        firstScore += 1
-                        networkSupport.send(message: "Found Treasure at [\(chosenRowInt),\(chosenColumnInt)], [\(firstScore), \(lastScore)]")
-                        // Update score
                         
-                        // Send score update out to all clients
-                        //networkSupport.send(message: "First Player's Score: \(firstScore)\nLast Player's Score: \(lastScore)")
+                        // Update first player's score
+                        firstScore += 1
+                        
+                        networkSupport.send(message: "Found Treasure at [\(chosenRowInt),\(chosenColumnInt)], [\(firstScore), \(lastScore)]")
+                        
                         // Decrement the total treasure remaining (once treasureRemaining == 0, game ends)
                         treasureRemaining -= 1
-                        // Change turns and increment message
-                        firstTurn = false
-                        lastTurn = true
-                        //networkSupport.send(message: "Scores: \(firstScore), \(lastScore)")
+                        
+                        // Change turns
+                        firstTurn.toggle()
+                        lastTurn.toggle()
+                        
                     } else if board.tiles[chosenRowInt!][chosenColumnInt!].item == nil && board.tiles[chosenRowInt!][chosenColumnInt!].guessed == false{
                         networkSupport.send(message: "No Treasure at [\(chosenRowInt),\(chosenColumnInt)]")
-                        // Change turns and increment message
-                        firstTurn = false
-                        lastTurn = true
+                        
+                        // Change turns
+                        firstTurn.toggle()
+                        lastTurn.toggle()
                     }
                     // Set the tile to found
                     board.tiles[chosenRowInt!][chosenColumnInt!].guessed = true
-                    // Telling client its their turn
-                    //networkSupport.send(message: "Last Player's turn.", last: "l")
                 } else if lastTurn && (networkSupport.incomingPeer == networkSupport.peers.last){
                     
                     // Extract the row and column chosen by the client (a char representing the row/column, respectively)
-                    let chosenRow = Array(newValue)[0]
-                    let chosenColumn = Array(newValue)[2]
+                    let chosenRow = Array(newValue)[indexOfRow]
+                    let chosenColumn = Array(newValue)[indexOfCol]
                     
                     // Convert those extracted values to Int instead of char
                     // If conversion fails the result will be nil
                     let chosenRowInt = chosenRow.wholeNumberValue
                     let chosenColumnInt = chosenColumn.wholeNumberValue
                     if board.tiles[chosenRowInt!][chosenColumnInt!].item != nil && board.tiles[chosenRowInt!][chosenColumnInt!].guessed == false{
+                        
+                        // Update last player's score
                         lastScore += 1
+                        
                         networkSupport.send(message: "Found Treasure at [\(chosenRowInt),\(chosenColumnInt)], [\(firstScore), \(lastScore)]")
                         
-                        // Send score update out to all clients
-                        //networkSupport.send(message: "First Player's Score: \(firstScore)\nLast Player's Score: \(lastScore)")
-                        // Update the player that found the treasures score
                         // Decrement the total treasure remaining (once treasureRemaining == 0, game ends)
                         treasureRemaining -= 1
-                        // Change turns and increment message
-                        firstTurn = true
-                        lastTurn = false
-                        //networkSupport.send(message: "Scores: \(firstScore), \(lastScore)")
+                        
+                        // Change turns
+                        firstTurn.toggle()
+                        lastTurn.toggle()
+                        
                     } else if board.tiles[chosenRowInt!][chosenColumnInt!].item == nil && board.tiles[chosenRowInt!][chosenColumnInt!].guessed == false{
                         networkSupport.send(message: "No Treasure at [\(chosenRowInt),\(chosenColumnInt)]")
-                        // Change turns and increment message
-                        firstTurn = true
-                        lastTurn = false
+                        
+                        // Change turns
+                        firstTurn.toggle()
+                        lastTurn.toggle()
+                        
                     }
                     // Set the tile to found
                     board.tiles[chosenRowInt!][chosenColumnInt!].guessed = true
-                    
                 }
             }
         }
@@ -190,10 +206,6 @@ struct ContentView: View {
 
 /// Defines the structure for the Tile object, which is used by the Board class to instantiate a gameboard
 struct Tile: Identifiable, Hashable {
-    
-//    static func == (lhs: Tile, rhs: Tile) -> Bool {
-//        return  lhs.id == rhs.id
-//    }
     
     /// A unique identifier for each tile
     let id = UUID()
@@ -205,7 +217,6 @@ struct Tile: Identifiable, Hashable {
     var colNumber: Int
     /// A boolean representing whether or not the tile has been guessed yet
     var guessed: Bool
-    
     
     /// The default initializer for a tile object
     /// - Parameters:
@@ -233,7 +244,6 @@ class Board: ObservableObject {
     init(){
         // create the tiles array
         tiles = [[Tile]]()
-        
         for i in 0..<boardSize{
             var tileRow = [Tile]()
             for j in 0..<boardSize{
@@ -263,6 +273,4 @@ class Board: ObservableObject {
             }
         }
     }//end of subscript helper
-    
 }//end of Board class
-

@@ -244,6 +244,9 @@ class NetworkSupport: NSObject, ObservableObject, MCNearbyServiceAdvertiserDeleg
         }
     }
     
+    /// Sends a message to the first registered peer in the registered peers list.  Used by the client.
+    /// - Parameter message: The message that is to be transmitted.
+    /// - Parameter first: Irrelevant/Placeholder just pass a single character.
     func send(message: String, first: Character) {
         guard let firstPeer = peers.first else{
             return
@@ -258,6 +261,9 @@ class NetworkSupport: NSObject, ObservableObject, MCNearbyServiceAdvertiserDeleg
         }
     }
     
+    /// Sends a message to the last registered peer in the registered peers list..  Used by the client.
+    /// - Parameter message: The message that is to be transmitted.
+    /// - Parameter last: Irrelevant/Placeholder just pass a single character.
     func send(message: String, last: Character) {
         guard let lastPeer = peers.last else{
             return
