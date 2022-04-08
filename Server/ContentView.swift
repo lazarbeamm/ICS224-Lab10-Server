@@ -14,8 +14,6 @@ struct ContentView: View {
     @State var lastTurn = false
     @State var advertising = false
     @StateObject var networkSupport = NetworkSupport(browse: false)
-    // successful message increment
-    @State var messageNonce = 0
     @State var firstScore = 0
     @State var lastScore = 0
     // The total number of treasures to be found. Once this value == 0, the game ends
@@ -70,7 +68,6 @@ struct ContentView: View {
                                     
                                 if (board.tiles[x][y].guessed == false){
                                     Button(action: { // not yet guessed
-                                        //outgoingMessage
                                     }){
                                         Image(systemName: "circle")
                                     }
@@ -106,12 +103,10 @@ struct ContentView: View {
                 // If first player's score is higher...
                 if firstScore > lastScore {
                     networkSupport.send(message: "Player First WINS!!!")
-                    //networkSupport.send(message: "\(String(describing: networkSupport.peers.first)) WINS!!!")
                 }
                 // If last player's score is higher
                 else if lastScore > firstScore {
                     networkSupport.send(message: "Player Last WINS!!")
-                    //networkSupport.send(message: "\(String(describing: networkSupport.peers.last)) WINS!!")
                 }
                 else {
                     networkSupport.send(message: "HOW DID YOU BREAK THIS?!?!?!\nARE THERE EVEN NUMBER OF TREASURES!??!?!")
@@ -134,7 +129,7 @@ struct ContentView: View {
                     let chosenColumnInt = chosenColumn.wholeNumberValue
                     if board.tiles[chosenRowInt!][chosenColumnInt!].item != nil && board.tiles[chosenRowInt!][chosenColumnInt!].guessed == false{
                         firstScore += 1
-                        networkSupport.send(message: "Found Treasure at [\(chosenRowInt),\(chosenColumnInt)], [\(firstScore), \(lastScore)]") //\(messageNonce)") \(messageNonce)")
+                        networkSupport.send(message: "Found Treasure at [\(chosenRowInt),\(chosenColumnInt)], [\(firstScore), \(lastScore)]")
                         // Update score
                         
                         // Send score update out to all clients
@@ -144,14 +139,12 @@ struct ContentView: View {
                         // Change turns and increment message
                         firstTurn = false
                         lastTurn = true
-                        messageNonce += 1
                         //networkSupport.send(message: "Scores: \(firstScore), \(lastScore)")
                     } else if board.tiles[chosenRowInt!][chosenColumnInt!].item == nil && board.tiles[chosenRowInt!][chosenColumnInt!].guessed == false{
-                        networkSupport.send(message: "No Treasure at [\(chosenRowInt),\(chosenColumnInt)]") //\(messageNonce)")
+                        networkSupport.send(message: "No Treasure at [\(chosenRowInt),\(chosenColumnInt)]")
                         // Change turns and increment message
                         firstTurn = false
                         lastTurn = true
-                        messageNonce += 1
                     }
                     // Set the tile to found
                     board.tiles[chosenRowInt!][chosenColumnInt!].guessed = true
@@ -169,7 +162,7 @@ struct ContentView: View {
                     let chosenColumnInt = chosenColumn.wholeNumberValue
                     if board.tiles[chosenRowInt!][chosenColumnInt!].item != nil && board.tiles[chosenRowInt!][chosenColumnInt!].guessed == false{
                         lastScore += 1
-                        networkSupport.send(message: "Found Treasure at [\(chosenRowInt),\(chosenColumnInt)], [\(firstScore), \(lastScore)]")//") //\(messageNonce)")
+                        networkSupport.send(message: "Found Treasure at [\(chosenRowInt),\(chosenColumnInt)], [\(firstScore), \(lastScore)]")
                         
                         // Send score update out to all clients
                         //networkSupport.send(message: "First Player's Score: \(firstScore)\nLast Player's Score: \(lastScore)")
@@ -179,14 +172,12 @@ struct ContentView: View {
                         // Change turns and increment message
                         firstTurn = true
                         lastTurn = false
-                        messageNonce += 1
                         //networkSupport.send(message: "Scores: \(firstScore), \(lastScore)")
                     } else if board.tiles[chosenRowInt!][chosenColumnInt!].item == nil && board.tiles[chosenRowInt!][chosenColumnInt!].guessed == false{
-                        networkSupport.send(message: "No Treasure at [\(chosenRowInt),\(chosenColumnInt)]") //\(messageNonce)")
+                        networkSupport.send(message: "No Treasure at [\(chosenRowInt),\(chosenColumnInt)]")
                         // Change turns and increment message
                         firstTurn = true
                         lastTurn = false
-                        messageNonce += 1
                     }
                     // Set the tile to found
                     board.tiles[chosenRowInt!][chosenColumnInt!].guessed = true
@@ -197,34 +188,48 @@ struct ContentView: View {
     }
 }//end of ContentView
 
+/// Defines the structure for the Tile object, which is used by the Board class to instantiate a gameboard
 struct Tile: Identifiable, Hashable {
-    static func == (lhs: Tile, rhs: Tile) -> Bool {
-        return  lhs.id == rhs.id
-    }
     
+//    static func == (lhs: Tile, rhs: Tile) -> Bool {
+//        return  lhs.id == rhs.id
+//    }
+    
+    /// A unique identifier for each tile
     let id = UUID()
+    /// The contents of a given tile. May be nil (empty), "Guessed" or "Treasure"
     var item: String?
+    /// A reference to the row position the tile occupies on the gameboard
     var rowNumber: Int
+    /// A reference to the column position the tile occupies on the gameboard
     var colNumber: Int
+    /// A boolean representing whether or not the tile has been guessed yet
     var guessed: Bool
     
+    
+    /// The default initializer for a tile object
+    /// - Parameters:
+    ///   - item: The string representation of what a given tile contains (nil, guessed, or treasure)
+    ///   - rowNumber: An integer representing the row position the tile occupies
+    ///   - colNumber: An integer representing the column position the tile occupies
     init(item: String?, rowNumber: Int, colNumber: Int){
         self.item = item
         self.rowNumber = rowNumber
         self.colNumber = colNumber
         self.guessed = false
     }
-    
-//    deinit{
-//        print("Deinitializing Tile")
-//    }
 }
 
+/// This class is used behind the scenes to represent the state of the game, in the form of an array of tile objects called tiles
+/// The board class is instantated once during startup, and initially each tile in the array is empy (nil)
+/// As players take turns guessing, the board is updated to reflect whether or not a tile has been guessed and is empty, or has been guessed and contained treasure
 class Board: ObservableObject {
+    /// The size of a board object (in this case, 10 x 10)
     let boardSize = 10
-    // declare an array of tiles caled tiles
+    /// An array of tile objects, used to store information about the gamestate
     @Published var tiles: [[Tile]]
     
+    /// The default initializer for the Board object
     init(){
         // create the tiles array
         tiles = [[Tile]]()
